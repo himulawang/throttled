@@ -1,6 +1,6 @@
-module github.com/himulawang/throttled/v2
+module github.com/himulawang/throttled/v3
 
-go 1.13
+go 1.14
 
 require (
 	github.com/go-redis/redis/v8 v8.6.0
