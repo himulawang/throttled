@@ -1,11 +1,12 @@
 package goredisstore_test
 
 import (
+	"context"
 	"log"
 	"testing"
 	"time"
 
-	"github.com/go-redis/redis"
+	"github.com/go-redis/redis/v8"
 	"github.com/throttled/throttled/v2"
 	"github.com/throttled/throttled/v2/store/goredisstore"
 	"github.com/throttled/throttled/v2/store/storetest"
@@ -15,6 +16,8 @@ const (
 	redisTestDB     = 1
 	redisTestPrefix = "throttled-go-redis:"
 )
+
+var ctx = context.Background()
 
 // Demonstrates that how to initialize a RateLimiter with redis
 // using go-redis library.
@@ -62,12 +65,12 @@ func BenchmarkRedisStore(b *testing.B) {
 }
 
 func clearRedis(c *redis.Client) error {
-	keys, err := c.Keys(redisTestPrefix + "*").Result()
+	keys, err := c.Keys(ctx, redisTestPrefix + "*").Result()
 	if err != nil {
 		return err
 	}
 
-	return c.Del(keys...).Err()
+	return c.Del(ctx, keys...).Err()
 }
 
 func setupRedis(tb testing.TB, ttl time.Duration) (*redis.Client, *goredisstore.GoRedisStore) {
@@ -79,7 +82,7 @@ func setupRedis(tb testing.TB, ttl time.Duration) (*redis.Client, *goredisstore.
 		DB:          redisTestDB, // use default DB
 	})
 
-	if err := client.Ping().Err(); err != nil {
+	if err := client.Ping(ctx).Err(); err != nil {
 		client.Close()
 		tb.Skip("redis server not available on localhost port 6379")
 	}
