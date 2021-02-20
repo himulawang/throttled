@@ -4,8 +4,8 @@ import (
 	"testing"
 	"time"
 
-	"github.com/throttled/throttled"
-	"github.com/throttled/throttled/store/memstore"
+	"github.com/throttled/throttled/v2"
+	"github.com/throttled/throttled/v2/store/memstore"
 )
 
 const deniedStatus = 429
@@ -66,6 +66,8 @@ func TestRateLimit(t *testing.T) {
 		13: {start.Add(9500 * time.Millisecond), 2, 2, 3 * time.Second, -1, false},
 		// Large requests cannot exceed limits
 		14: {start.Add(9500 * time.Millisecond), 5, 2, 3 * time.Second, 3 * time.Second, true},
+		// Requesting value larger than the maximum after some values have been added to store and state was reset by timeout
+		15: {start.Add(15000 * time.Millisecond), 6, 5, 0, -1, true},
 	}
 
 	mst, err := memstore.New(0)
@@ -106,6 +108,36 @@ func TestRateLimit(t *testing.T) {
 
 		if have, want := context.RetryAfter, c.retry; have != want {
 			t.Errorf("%d: expected RetryAfter to be %d but got %d", i, want, have)
+		}
+	}
+}
+
+func TestRateLimitCustomPeriod(t *testing.T) {
+	period := 10 * time.Millisecond
+	rq := throttled.RateQuota{throttled.PerDuration(3, period), 0}
+	mst, err := memstore.New(27)
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	st := testStore{store: mst}
+	rl, err := throttled.NewGCRARateLimiter(&st, rq)
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	for i := 0; i < 27; i++ {
+		limited, _, err := rl.RateLimit("bar", 1)
+		if err != nil {
+			t.Fatal(err)
+		}
+
+		if i != 0 && i%3 == 0 && !limited {
+			t.Errorf("%d is expected to be limited", i)
+		}
+
+		if limited {
+			time.Sleep(period)
 		}
 	}
 }

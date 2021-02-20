@@ -1,5 +1,5 @@
 // Package goredisstore offers Redis-based store implementation for throttled using go-redis.
-package goredisstore // import "github.com/throttled/throttled/store/goredisstore"
+package goredisstore // import "github.com/throttled/throttled/v2/store/goredisstore"
 
 import (
 	"strings"
@@ -25,7 +25,7 @@ return 1
 
 // GoRedisStore implements a Redis-based store using go-redis.
 type GoRedisStore struct {
-	client *redis.Client
+	client redis.UniversalClient
 	prefix string
 }
 
@@ -35,7 +35,7 @@ type GoRedisStore struct {
 // be selected to store the keys. Any updating operations will reset
 // the key TTL to the provided value rounded down to the nearest
 // second. Depends on Redis 2.6+ for EVAL support.
-func New(client *redis.Client, keyPrefix string) (*GoRedisStore, error) {
+func New(client redis.UniversalClient, keyPrefix string) (*GoRedisStore, error) {
 	return &GoRedisStore{
 		client: client,
 		prefix: keyPrefix,
@@ -80,16 +80,14 @@ func (r *GoRedisStore) SetIfNotExistsWithTTL(key string, value int64, ttl time.D
 		return false, err
 	}
 
-	ttlSeconds := time.Duration(ttl.Seconds())
-
 	// An `EXPIRE 0` will delete the key immediately, so make sure that we set
 	// expiry for a minimum of one second out so that our results stay in the
 	// store.
-	if ttlSeconds < 1 {
-		ttlSeconds = 1
+	if ttl < 1*time.Second {
+		ttl = 1 * time.Second
 	}
 
-	err = r.client.Expire(key, ttlSeconds*time.Second).Err()
+	err = r.client.Expire(key, ttl).Err()
 	return updated, err
 }
 
